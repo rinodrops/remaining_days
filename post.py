@@ -7,6 +7,7 @@
 # https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv
 # =============================================================================
 
+import atproto
 from mastodon import Mastodon
 from datetime import date, datetime
 import os
@@ -24,6 +25,17 @@ new_year = date(today.year + 1, 1, 1)
 remaining_days_new_year = (new_year - today).days
 total_days = (new_year - date(today.year, 1, 1)).days
 remaining_percentage =  remaining_days_new_year / total_days * 100
+year_percentage = (total_days - remaining_days_new_year) / total_days * 100
+
+# Function to create a progress bar
+def create_progress_bar(percentage):
+    bar_length = 20  # You can adjust this for a longer or shorter bar
+    filled_length = int(round(bar_length * percentage / 100))
+    bar = '▓' * filled_length + '┄' * (bar_length - filled_length)
+    return f"{bar} {total_days - remaining_days_new_year}/{total_days} ({percentage:5.1f}%)"
+
+# Generate the progress bar for the year
+year_progress_bar = create_progress_bar(year_percentage)
 
 # Load and process the Japanese national holidays CSV file
 # -----------------------------------------------------------------------------
@@ -42,13 +54,23 @@ upcoming_holiday_message = '\n'.join(holiday_messages)
 
 # Format the message
 # -----------------------------------------------------------------------------
-message = f"{today.year}年{today.month}月{today.day}日になりました。\n今年は残り{remaining_days_new_year}日です。あと{remaining_percentage:.1f}%です。\n\n次の祝日:\n{upcoming_holiday_message}"
+message = f"{today.year}年{today.month}月{today.day}日になりました。\n{year_progress_bar}\n\n今年は残り{remaining_days_new_year}日（{remaining_percentage:.1f}%）です。\n\n次の祝日:\n{upcoming_holiday_message}"
 
-# Mastodon API credentials
+# Configure Mastodon (ActivityPub) client
 mastodon = Mastodon(
     access_token = os.getenv("MASTODON_ACCESS_TOKEN"),
     api_base_url = os.getenv("MASTODON_API_BASE_URL")
 )
 
-# Post the message
+# Mastodon: Post the message
 mastodon.status_post(message)
+
+# Configure Bluesky (AT Protocol) client
+bluesky = atproto.Client()
+bluesky.login(
+    os.getenv('BLUESKY_ID'),
+    os.getenv('BLUESKY_APP_PASSWORD')
+)
+
+# Bluesky: Post the message
+bluesky.send_post(text=message)
