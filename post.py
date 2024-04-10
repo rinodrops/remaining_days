@@ -32,7 +32,7 @@ def create_progress_bar(percentage):
     bar_length = 20  # You can adjust this for a longer or shorter bar
     filled_length = int(round(bar_length * percentage / 100))
     bar = '▓' * filled_length + '┄' * (bar_length - filled_length)
-    return f"{bar} {total_days - remaining_days_new_year}/{total_days} ({percentage:5.1f}%)"
+    return f"{bar} {total_days - remaining_days_new_year}/{total_days}"
 
 # Generate the progress bar for the year
 year_progress_bar = create_progress_bar(year_percentage)
