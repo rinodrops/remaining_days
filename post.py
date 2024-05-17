@@ -13,6 +13,9 @@ from datetime import date, datetime
 import os
 import dotenv
 import pandas as pd
+import time
+import threading
+
 
 # Load environment variables
 # -----------------------------------------------------------------------------
@@ -56,21 +59,42 @@ upcoming_holiday_message = '\n'.join(holiday_messages)
 # -----------------------------------------------------------------------------
 message = f"{today.year}年{today.month}月{today.day}日になりました。\n{year_progress_bar}\n\n今年は残り{remaining_days_new_year}日（{remaining_percentage:.1f}%）です。\n\n次の祝日:\n{upcoming_holiday_message}"
 
-# Configure Mastodon (ActivityPub) client
-mastodon = Mastodon(
-    access_token = os.getenv("MASTODON_ACCESS_TOKEN"),
-    api_base_url = os.getenv("MASTODON_API_BASE_URL")
-)
+def retry(func, retries=16, delay=900):
+    for attempt in range(retries):
+        try:
+            func()
+            break
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
 
 # Mastodon: Post the message
-mastodon.status_post(message)
-
-# Configure Bluesky (AT Protocol) client
-bluesky = atproto.Client()
-bluesky.login(
-    os.getenv('BLUESKY_ID'),
-    os.getenv('BLUESKY_APP_PASSWORD')
-)
+def post_to_mastodon():
+    # Configure Mastodon (ActivityPub) client
+    mastodon = Mastodon(
+        access_token = os.getenv("MASTODON_ACCESS_TOKEN"),
+        api_base_url = os.getenv("MASTODON_API_BASE_URL")
+    )
+    mastodon.status_post(message)
 
 # Bluesky: Post the message
-bluesky.send_post(text=message)
+def post_to_bluesky():
+    # Configure Bluesky (AT Protocol) client
+    bluesky = atproto.Client()
+    bluesky.login(
+        os.getenv('BLUESKY_ID'),
+        os.getenv('BLUESKY_APP_PASSWORD')
+    )
+    bluesky.send_post(text=message)
+
+# Create threads for posting
+mastodon_thread = threading.Thread(target=lambda: retry(post_to_mastodon))
+bluesky_thread = threading.Thread(target=lambda: retry(post_to_bluesky))
+
+# Start the threads
+mastodon_thread.start()
+bluesky_thread.start()
+
+# Wait for both threads to finish
+mastodon_thread.join()
+bluesky_thread.join()
